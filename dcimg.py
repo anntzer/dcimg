@@ -309,6 +309,14 @@ file_name=input_file.dcimg>
             self._ts_data = np.ndarray(
                 (self.nfrms, 2), np.uint32, self.mm, offset, strides)
 
+        if self.fmt_version == DCIMGFile.FMT_OLD:
+            # metadata offset
+            meta_offset, meta_size = np.fromstring(
+                self.mm[self._session_footer_offset + 0x80:][:16], "<i8")
+            self._file_metadata_bin = (
+                self.mm[self._session_footer_offset + meta_offset:][:meta_size]
+            )
+
         self.compute_target_line()
 
     def compute_target_line(self):
@@ -333,8 +341,8 @@ file_name=input_file.dcimg>
             raise ValueError('Invalid DCIMG file')
 
         if self._file_header['format_version'] == 0x7:
-            sess_dtype = self.SESS_HDR_DTYPE
             self.fmt_version = self.FMT_OLD
+            sess_dtype = self.SESS_HDR_DTYPE
         elif self._file_header['format_version'] == 0x1000000:
             self.fmt_version = self.FMT_NEW
             sess_dtype = self.NEW_SESSION_HEADER_DTYPE
@@ -551,6 +559,10 @@ file_name=input_file.dcimg>
         whole = int.from_bytes(self._ts_data[frame, 0], 'little')
         fraction = int.from_bytes(self._ts_data[frame, 1], 'little')
         return np.datetime64(whole * 10**6 + fraction, 'us')
+
+    @property
+    def file_metadata_bin(self):
+        return self._file_metadata_bin
 
     def zslice(self, start_frame, end_frame=None, dtype=None, copy=True):
         """Return a slice along `Z`, i.e.\  a substack of frames.
